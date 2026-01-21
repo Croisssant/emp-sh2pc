@@ -326,8 +326,6 @@ Bit find_match(std::vector<Integer> pattern_vector, std::vector<std::vector<Inte
 }
 
 
-
-
 void test_matching(int party, string pattern, size_t pattern_size, string text, size_t text_size) {
 
   size_t num_windows = text_size - pattern_size + 1;
@@ -362,48 +360,6 @@ void test_matching(int party, string pattern, size_t pattern_size, string text, 
   cout << "Match found?\t" << res.reveal<bool>() << endl;
 }
 
-// void test_matching(int party) {
-
-//   size_t PATTERN_SIZE = 3;
-
-//   std::vector<uint8_t> pattern_holder_ascii {};
-//   std::vector<Integer> pattern_vector;
-
-//   std::vector<std::vector<uint8_t>> text_holder_ascii {};
-//   std::vector<std::vector<Integer>> text_vector;
-
-//   /*
-//     pattern: [1, 2, 3]
-//     text: [["H","E","L"], ["E","L","L"], ["L","L","O"]]
-//   */
-  
-//   if (party == 0) {
-//     pattern_holder_ascii = StringProcessing::pattern_holder("HEL");
-//   } else{
-//     text_holder_ascii = StringProcessing::text_holder("HELLO", 3);
-//   }
-
-//   size_t num_windows = text_holder_ascii.size();
-
-//   for(int i = 0; i < PATTERN_SIZE; i++) {
-//     pattern_vector.push_back(Integer(32, pattern_holder_ascii[i], ALICE));
-//   }
-
-//   for(int i = 0; i < num_windows; i++) {
-//     std::vector<Integer> temp_vec {};
-//     for (int j = 0; j < PATTERN_SIZE; j++) {
-//       temp_vec.push_back(Integer(32, text_holder_ascii[i][j], BOB));
-//     }
-//     text_vector.push_back(temp_vec);
-//   }
-
-
-// 	Bit res = find_match(pattern_vector, text_vector);
-
-// 	cout << "Match found?\t"<< res.reveal<bool>()<<endl;
-// }
-
-
 
 int main(int argc, char** argv) {
 
@@ -424,7 +380,23 @@ int main(int argc, char** argv) {
 
 	NetIO * io = new NetIO(party==ALICE ? nullptr : "127.0.0.1", port);
 
+  // Record initial bytes
+  uint64_t setup_initial_counter = io->counter;
+  auto setup_runtime_start = emp::clock_start();
+
+  /*
+  setup_semi_honest():
+  - Alice / Bob
+  - Creates HalfGateGen / HalfGateEva
+  - Setup OT sender / OT receiver
+  - Generates cryptographic keys (Delta value, PRG seeds) / Receives shared randomness
+  - Initializes circuit execution engine / Initializes evaluation engine
+  */
 	setup_semi_honest(io, party);
+
+  cout << "Setup Runtime: " << emp::time_from(setup_runtime_start)/1000.0 << " ms" << endl;
+  uint64_t setup_bytes_sent = io->counter - setup_initial_counter;
+  cout << "Setup total bytes sent: " << setup_bytes_sent << " bytes" << endl;
 
 
   string pattern {};
@@ -443,7 +415,15 @@ int main(int argc, char** argv) {
     pattern_size = args.pattern_length;
   }
 
+  
+  uint64_t online_initial_counter = io->counter;
+  auto online_runtime_start = emp::clock_start();
+
 	test_matching(party, pattern, pattern_size, text, text_size);
+  
+  cout << "Online Runtime: " << emp::time_from(online_runtime_start)/1000.0 << " ms" << endl;
+  uint64_t online_bytes_sent = io->counter - online_initial_counter;
+  cout << "Online total bytes sent: " << online_bytes_sent << " bytes" << endl;
 
 	cout << CircuitExecution::circ_exec->num_and()<<endl;
 	finalize_semi_honest();
